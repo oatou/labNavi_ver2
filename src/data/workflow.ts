@@ -6,7 +6,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
             id: "step-1",
             title: "1. 試験片準備",
             type: "process",
-            icon: "ClipboardList",
+            icon: "Box",
             subProcesses: [
                 {
                     id: "1.1",
@@ -38,7 +38,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
             id: "step-2",
             title: "2. ワークの準備",
             type: "process",
-            icon: "Box",
+            icon: "BarChart2",
             subProcesses: [
                 {
                     id: "2.1",
@@ -51,7 +51,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
         },
         {
             id: "step-3",
-            title: "3. 実験装置のセットアップ",
+            title: "3. ワークの準備",
             type: "process",
             icon: "Settings",
             subProcesses: [
@@ -90,14 +90,14 @@ export const experimentalWorkflow: WorkflowDefinition = {
                     id: "4.1",
                     title: "準備",
                     contents: [
-                        { id: "c-4-1-1", type: "text", text: "スポイト加工 -> 総重量測定 -> 塗布量計算。", required: false }
+                        { id: "c-4-1-1", type: "text", text: "スポイトを斜めにはさみで切る -> (スポイト、ビン、流体を含めた)総重量測定 -> 塗布量計算。", required: false }
                     ]
                 },
                 {
                     id: "4.2",
                     title: "塗布・均し",
                     contents: [
-                        { id: "c-4-2-1", type: "text", text: "200rpm回転 -> 塗布(誤差±0.3g) -> ステージ操作で流体を均す -> 高さ合わせ -> トルク計ゼロ点。", required: false }
+                        { id: "c-4-2-1", type: "text", text: "200rpm程度で回転 -> 塗布(誤差±0.3g) -> ステージ操作で流体を均す -> 高さ合わせ -> トルク計ゼロ点。", required: false }
                     ]
                 }
             ]
@@ -106,7 +106,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
             id: "step-5",
             title: "5. 研磨工程",
             type: "process",
-            icon: "PlayCircle",
+            icon: "GitBranch",
             subProcesses: [
                 {
                     id: "5.1",
@@ -148,7 +148,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
                     id: "6.3",
                     title: "データ保存",
                     contents: [
-                        { id: "c-5-1-1", type: "text", text: "命名規則(δ-n-V-t)に従い保存。", required: false }
+                        { id: "c-6-3-1", type: "check", text: "命名規則(δ-n-V-t)に従い保存。", required: false }
                     ]
                 },
                 {
@@ -186,7 +186,7 @@ export const experimentalWorkflow: WorkflowDefinition = {
             id: "decision-loop",
             title: "次回の実験判断",
             type: "decision",
-            icon: "GitBranch",
+            icon: "CheckCircle",
             subProcesses: [
                 {
                     id: "loop-check",
@@ -213,5 +213,24 @@ export const experimentalWorkflow: WorkflowDefinition = {
         { id: "ed-1", source: "decision-loop", target: "step-1" },
         { id: "ed-2", source: "decision-loop", target: "step-2" }
     ],
-    groups: []
+    groups: [
+        {
+            id: "group-factory",
+            title: "工場",
+            nodeIds: ["step-1", "step-2"],
+            color: "#ef4444"
+        },
+        {
+            id: "group-lab",
+            title: "実験室",
+            nodeIds: ["step-3", "step-4", "step-5", "step-6"],
+            color: "#f59e0b"
+        },
+        {
+            id: "group-home",
+            title: "研究室や自宅など",
+            nodeIds: ["step-7", "decision-loop"],
+            color: "#10b981"
+        }
+    ]
 };
