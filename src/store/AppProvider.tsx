@@ -1,4 +1,7 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
+import { db } from '../firebase';
+import { useAuth } from './AuthProvider';
 import type { UserProgress, WorkflowDefinition, WorkflowNode, Project, WorkflowGroup } from '../types/workflow';
 import { experimentalWorkflow } from '../data/workflow';
 
@@ -12,6 +15,7 @@ interface AppContextType {
     deleteProject: (id: string) => void;
     selectProject: (id: string) => void;
     backToMenu: () => void;
+    loading: boolean;
 
     // Workflow Actions (operate on current project)
     workflow: WorkflowDefinition;
@@ -36,11 +40,6 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-const PROJECTS_STORAGE_KEY = 'lab-flow-projects';
-// Legacy keys for migration
-const LEGACY_PROGRESS_KEY = 'lab-flow-progress';
-const LEGACY_WORKFLOW_KEY = 'lab-flow-data-v2';
-
 const INITIAL_PROGRESS: UserProgress = {
     currentNodeId: 'step-1',
     completedStepIds: [],
@@ -49,62 +48,68 @@ const INITIAL_PROGRESS: UserProgress = {
 };
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-    const [projects, setProjects] = useState<Project[]>(() => {
-        const savedProjects = localStorage.getItem(PROJECTS_STORAGE_KEY);
-        if (savedProjects) {
-            return JSON.parse(savedProjects);
-        }
-
-        // Migration Logic: Check for legacy data
-        const legacyWorkflow = localStorage.getItem(LEGACY_WORKFLOW_KEY);
-        const legacyProgress = localStorage.getItem(LEGACY_PROGRESS_KEY);
-
-        if (legacyWorkflow || legacyProgress) {
-            const initialWorkflow = legacyWorkflow ? JSON.parse(legacyWorkflow) : experimentalWorkflow;
-            const initialProgress = legacyProgress ? JSON.parse(legacyProgress) : INITIAL_PROGRESS;
-
-            const defaultProject: Project = {
-                id: `proj-${Date.now()}`,
-                name: 'デフォルトプロジェクト',
-                description: '以前のデータから移行されました',
-                createdAt: Date.now(),
-                updatedAt: Date.now(),
-                workflow: initialWorkflow,
-                progress: initialProgress
-            };
-            return [defaultProject];
-        }
-
-        // Fresh start
-        const defaultProject: Project = {
-            id: `proj-${Date.now()}`,
-            name: 'デフォルトプロジェクト',
-            description: '初期フローチャート',
-            createdAt: Date.now(),
-            updatedAt: Date.now(),
-            workflow: JSON.parse(JSON.stringify(experimentalWorkflow)),
-            progress: { ...INITIAL_PROGRESS }
-        };
-        return [defaultProject];
-    });
-
+    const { user } = useAuth();
+    const [projects, setProjects] = useState<Project[]>([]);
     const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
+    const [loading, setLoading] = useState(true);
 
-    // Persist projects whenever they change
+    // Sync with Firestore
     useEffect(() => {
-        localStorage.setItem(PROJECTS_STORAGE_KEY, JSON.stringify(projects));
-    }, [projects]);
+        if (!user) {
+            setProjects([]);
+            setLoading(false);
+            return;
+        }
+
+        const userDocRef = doc(db, 'users', user.uid);
+
+        // Subscribe to real-time updates
+        const unsubscribe = onSnapshot(userDocRef, (docSnap) => {
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                setProjects(data.projects || []);
+            } else {
+                // First time user - create default project
+                const defaultProject: Project = {
+                    id: `proj-${Date.now()}`,
+                    name: 'デフォルトプロジェクト',
+                    description: '初期フローチャート',
+                    createdAt: Date.now(),
+                    updatedAt: Date.now(),
+                    workflow: JSON.parse(JSON.stringify(experimentalWorkflow)),
+                    progress: { ...INITIAL_PROGRESS }
+                };
+                setProjects([defaultProject]);
+                // Save to Firestore
+                setDoc(userDocRef, { projects: [defaultProject] });
+            }
+            setLoading(false);
+        });
+
+        return () => unsubscribe();
+    }, [user]);
+
+    // Save to Firestore whenever projects change
+    const saveToFirestore = useCallback(async (newProjects: Project[]) => {
+        if (!user) return;
+        const userDocRef = doc(db, 'users', user.uid);
+        await setDoc(userDocRef, { projects: newProjects });
+    }, [user]);
 
     // Helpers to update current project
     const updateCurrentProject = (updater: (project: Project) => Project) => {
         if (!currentProjectId) return;
-        setProjects(prev => prev.map(p => {
-            if (p.id === currentProjectId) {
-                const updated = updater(p);
-                return { ...updated, updatedAt: Date.now() };
-            }
-            return p;
-        }));
+        setProjects(prev => {
+            const newProjects = prev.map(p => {
+                if (p.id === currentProjectId) {
+                    const updated = updater(p);
+                    return { ...updated, updatedAt: Date.now() };
+                }
+                return p;
+            });
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
     };
 
     // --- Project Management Actions ---
@@ -116,19 +121,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             description,
             createdAt: Date.now(),
             updatedAt: Date.now(),
-            workflow: JSON.parse(JSON.stringify(experimentalWorkflow)), // Start with default template
+            workflow: JSON.parse(JSON.stringify(experimentalWorkflow)),
             progress: { ...INITIAL_PROGRESS }
         };
-        setProjects(prev => [...prev, newProject]);
+        setProjects(prev => {
+            const newProjects = [...prev, newProject];
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
     };
 
     const updateProject = (id: string, data: Partial<Project>) => {
-        setProjects(prev => prev.map(p => p.id === id ? { ...p, ...data, updatedAt: Date.now() } : p));
+        setProjects(prev => {
+            const newProjects = prev.map(p => p.id === id ? { ...p, ...data, updatedAt: Date.now() } : p);
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
     };
 
     const deleteProject = (id: string) => {
         if (!confirm('プロジェクトを削除しますか？この操作は取り消せません。')) return;
-        setProjects(prev => prev.filter(p => p.id !== id));
+        setProjects(prev => {
+            const newProjects = prev.filter(p => p.id !== id);
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
         if (currentProjectId === id) {
             setCurrentProjectId(null);
         }
@@ -145,12 +162,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // --- Derived State for Current Project ---
 
     const currentProject = projects.find(p => p.id === currentProjectId);
-
-    // Fallback for when no project is selected (should handle in UI, but safe defaults here)
     const workflow = currentProject?.workflow || experimentalWorkflow;
     const progress = currentProject?.progress || INITIAL_PROGRESS;
 
-    // --- Workflow Actions (Wrapped to update current project) ---
+    // --- Workflow Actions ---
 
     const setNode = (nodeId: string) => {
         updateCurrentProject(p => ({
@@ -190,7 +205,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
     };
 
-    // --- Editing Actions (Wrapped) ---
+    // --- Editing Actions ---
 
     const addNode = (title: string, type: 'process' | 'decision' = 'process') => {
         const newId = `step-${Date.now()}`;
@@ -261,7 +276,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             const updatedNodes = prev.nodes.map(n => n.id === id ? { ...n, ...data } : n);
             let updatedEdges = prev.edges;
 
-            // Case 1: Updating Decision Options -> Sync Edges
             if (data.decisionOptions) {
                 updatedEdges = updatedEdges.filter(e => e.source !== id);
                 data.decisionOptions.forEach((option, index) => {
@@ -273,9 +287,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                         });
                     }
                 });
-            }
-            // Case 2: Reverting to Process
-            else if (data.type === 'process' || data.decisionOptions === undefined) {
+            } else if (data.type === 'process' || data.decisionOptions === undefined) {
                 const currentNodeIndex = prev.nodes.findIndex(n => n.id === id);
                 if (currentNodeIndex !== -1 && currentNodeIndex < prev.nodes.length - 1) {
                     const nextNode = prev.nodes[currentNodeIndex + 1];
@@ -333,6 +345,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     };
 
+    // --- Group Actions ---
+
     const addGroup = (title: string, nodeIds: string[], color: string = '#ef4444') => {
         const newGroup: WorkflowGroup = {
             id: `group-${Date.now()}`,
@@ -383,6 +397,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             deleteProject,
             selectProject,
             backToMenu,
+            loading,
             workflow,
             progress,
             setNode,
