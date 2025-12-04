@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../store/AppProvider';
-import { Plus, Trash2, Edit2, Save, X, MoreVertical, GitBranch, FileText, Layers } from 'lucide-react';
+import { Plus, Trash2, Edit2, Save, X, GitBranch, FileText, Layers } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 
 const AVAILABLE_ICONS = [

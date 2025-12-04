@@ -31,7 +31,6 @@ const DynamicIcon: React.FC<{ name?: string; className?: string }> = ({ name, cl
 
 // Custom Edge with Dynamic Detour
 const DetourEdge: React.FC<EdgeProps> = ({
-    id,
     sourceX,
     sourceY,
     targetX,
@@ -41,8 +40,6 @@ const DetourEdge: React.FC<EdgeProps> = ({
     style = {},
     markerEnd,
     label,
-    labelStyle,
-    labelBgStyle,
     data
 }) => {
     const detourWidth = data?.detourWidth || 50;
@@ -203,7 +200,7 @@ const DecisionNode: React.FC<NodeProps> = ({ data, selected }) => {
 };
 
 // Custom Group Node
-const GroupNode: React.FC<NodeProps> = ({ data, selected }) => {
+const GroupNode: React.FC<NodeProps> = ({ data }) => {
     return (
         <div style={{
             width: '100%',

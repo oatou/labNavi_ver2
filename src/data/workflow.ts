@@ -212,5 +212,6 @@ export const experimentalWorkflow: WorkflowDefinition = {
         { id: "e7-d", source: "step-7", target: "decision-loop" },
         { id: "ed-1", source: "decision-loop", target: "step-1" },
         { id: "ed-2", source: "decision-loop", target: "step-2" }
-    ]
+    ],
+    groups: []
 };
