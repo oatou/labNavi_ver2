@@ -227,6 +227,12 @@ export const experimentalWorkflow: WorkflowDefinition = {
             color: "#f59e0b"
         },
         {
+            id: "group-factory2",
+            title: "工場2",
+            nodeIds: ["step-6"],
+            color: "#f59e0b"
+        },
+        {
             id: "group-home",
             title: "研究室や自宅など",
             nodeIds: ["step-7", "decision-loop"],
