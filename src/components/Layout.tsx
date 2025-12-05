@@ -3,25 +3,35 @@ import { ReactFlowProvider } from 'reactflow';
 import { FlowPanel } from './FlowPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { WorkflowEditor } from './WorkflowEditor';
+import { QRCodeButton } from './QRCodeButton';
 import { PanelLeftClose, PanelLeft } from 'lucide-react';
+import { useApp } from '../store/AppProvider';
 
 export const Layout: React.FC = () => {
     const [isFullscreen, setIsFullscreen] = useState(false);
+    const { currentProject } = useApp();
 
     return (
         <div className="flex h-full w-full overflow-hidden bg-gray-50 text-gray-900">
-            {/* Toggle Button */}
-            <button
-                onClick={() => setIsFullscreen(!isFullscreen)}
-                className="absolute top-3 left-3 z-50 bg-white hover:bg-gray-100 border border-gray-200 rounded-lg p-2 shadow-sm transition-colors"
-                title={isFullscreen ? "サイドバー表示" : "全画面表示"}
-            >
-                {isFullscreen ? (
-                    <PanelLeft className="w-5 h-5 text-gray-600" />
-                ) : (
-                    <PanelLeftClose className="w-5 h-5 text-gray-600" />
-                )}
-            </button>
+            {/* Top Control Bar */}
+            <div className="absolute top-3 left-3 z-50 flex gap-2">
+                <button
+                    onClick={() => setIsFullscreen(!isFullscreen)}
+                    className="btn-glow bg-white hover:bg-gray-100 border border-gray-200 rounded-lg p-2 shadow-sm"
+                    title={isFullscreen ? "サイドバー表示" : "全画面表示"}
+                >
+                    {isFullscreen ? (
+                        <PanelLeft className="w-5 h-5 text-gray-600" />
+                    ) : (
+                        <PanelLeftClose className="w-5 h-5 text-gray-600" />
+                    )}
+                </button>
+
+                <QRCodeButton
+                    projectId={currentProject?.id}
+                    projectName={currentProject?.name}
+                />
+            </div>
 
             {isFullscreen ? (
                 // Fullscreen Mode: Horizontal Layout

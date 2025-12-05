@@ -2,6 +2,7 @@ import React, { useMemo, useEffect } from 'react';
 import ReactFlow, {
     Background,
     Controls,
+    MiniMap,
     MarkerType,
     useNodesState,
     useEdgesState,
@@ -554,7 +555,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
     }, [initialNodes, initialEdges, setNodes, setEdges]);
 
     return (
-        <div className="w-full h-full">
+        <div className="w-full h-full flowchart-gradient">
             <ReactFlow
                 nodes={nodes}
                 edges={edges}
@@ -570,8 +571,17 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                     setNode(node.id);
                 }}
             >
-                <Background color="#f8fafc" gap={16} />
+                <Background color="#94a3b8" gap={20} size={1} />
                 <Controls />
+                <MiniMap
+                    nodeColor={(node) => {
+                        if (node.type === 'decisionNode') return '#f59e0b';
+                        if (node.type === 'groupNode') return 'transparent';
+                        return '#3b82f6';
+                    }}
+                    maskColor="rgba(0, 0, 0, 0.1)"
+                    position="bottom-right"
+                />
             </ReactFlow>
         </div>
     );

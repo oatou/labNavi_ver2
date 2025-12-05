@@ -55,6 +55,16 @@ export interface UserProgress {
     inputValues: Record<string, string>; // { contentId: value }
 }
 
+// Version History Entry
+export interface HistoryEntry {
+    id: string;
+    timestamp: number;
+    userId: string;
+    userEmail?: string;
+    action: 'create' | 'update' | 'complete' | 'reset';
+    details: string;
+}
+
 export interface Project {
     id: string;
     name: string;
@@ -63,4 +73,5 @@ export interface Project {
     updatedAt: number;
     workflow: WorkflowDefinition;
     progress: UserProgress;
+    history?: HistoryEntry[];  // Version history
 }
