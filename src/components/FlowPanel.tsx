@@ -146,6 +146,10 @@ const ProcessNode: React.FC<NodeProps> = ({ data, selected }) => {
             <Handle type="target" position={Position.Top} id="target-center" style={{ left: '50%' }} className="!opacity-0" />
             <Handle type="target" position={Position.Top} id="target-right" style={{ left: '70%' }} className="!opacity-0" />
 
+            {/* Horizontal handles for horizontal layout */}
+            <Handle type="target" position={Position.Left} id="left" className="!opacity-0" />
+            <Handle type="source" position={Position.Right} id="right" className="!opacity-0" />
+
             <Handle type="source" position={Position.Bottom} className="!opacity-0" />
         </div>
     );
@@ -320,6 +324,10 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
         }
 
         // 2. Create Process/Decision Nodes
+        // Count process nodes for positioning decision node
+        const processNodes = workflow.nodes.filter(n => n.type !== 'decision');
+        const processNodeCount = processNodes.length;
+
         workflow.nodes.forEach((node, index) => {
             const isCurrent = node.id === progress.currentNodeId;
             const isCompleted = progress.completedStepIds.includes(node.id) ||
@@ -331,13 +339,25 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                 isCompleted
             };
 
-            // Calculate position based on orientation
-            const x = isHorizontal
-                ? index * HORIZONTAL_SPACING + START_X
-                : CENTER_X + (node.type === 'decision' ? (NODE_WIDTH - 220) / 2 : 0);
-            const y = isHorizontal
-                ? START_Y
-                : index * VERTICAL_SPACING + 50;
+            let x: number;
+            let y: number;
+
+            if (isHorizontal) {
+                if (node.type === 'decision') {
+                    // Decision node: below the last process node
+                    x = (processNodeCount - 1) * HORIZONTAL_SPACING + START_X + 50;
+                    y = START_Y + 150;
+                } else {
+                    // Process nodes: horizontal row, but skip decision node in index
+                    const processIndex = processNodes.findIndex(n => n.id === node.id);
+                    x = processIndex * HORIZONTAL_SPACING + START_X;
+                    y = START_Y;
+                }
+            } else {
+                // Vertical layout
+                x = CENTER_X + (node.type === 'decision' ? (NODE_WIDTH - 220) / 2 : 0);
+                y = index * VERTICAL_SPACING + 50;
+            }
 
             if (node.type === 'decision') {
                 nodes.push({
@@ -368,59 +388,92 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
             incomingEdgeCounts[edge.target] = (incomingEdgeCounts[edge.target] || 0) + 1;
         });
 
+
+
         return workflow.edges.map(edge => {
             const sourceNode = workflow.nodes.find(n => n.id === edge.source);
+            const targetNode = workflow.nodes.find(n => n.id === edge.target);
             const sourceIndex = workflow.nodes.findIndex(n => n.id === edge.source);
             const targetIndex = workflow.nodes.findIndex(n => n.id === edge.target);
 
             let label = '';
             let strokeColor = '#64748b';
             let strokeWidth = 2;
-            let strokeDasharray = undefined;
-            let sourceHandle = 'bottom'; // Default to bottom (Main Flow)
+            let strokeDasharray: string | undefined = undefined;
+            let sourceHandle = 'bottom';
             let targetHandle = 'target-center';
             let detourWidth = 50;
 
-            if (sourceNode?.type === 'decision' && sourceNode.decisionOptions) {
-                const option = sourceNode.decisionOptions.find(opt => opt.targetNodeId === edge.target);
-                if (option) {
-                    label = option.label;
-                    strokeDasharray = '5,5';
+            if (isHorizontal) {
+                // Horizontal layout edge logic
+                if (sourceNode?.type === 'decision' && sourceNode.decisionOptions) {
+                    // Decision node branches
+                    const option = sourceNode.decisionOptions.find(opt => opt.targetNodeId === edge.target);
+                    if (option) {
+                        label = option.label.replace(/\s*\([^)]*\)/, ''); // Remove parenthetical text
+                        strokeDasharray = '5,5';
 
-                    // Determine if this is the "Main Flow" (next sequential node)
-                    const isMainFlow = targetIndex === sourceIndex + 1;
-
-                    if (isMainFlow) {
-                        sourceHandle = 'bottom';
-                        strokeColor = '#2563eb'; // Blue for main flow
-                        strokeWidth = 3;
-                    } else {
-                        // Branch logic
-                        // Calculate dynamic width based on label length
-                        // Base 30px + 8px per character (Tighter spacing)
-                        detourWidth = 30 + (label.length * 8);
-
-                        // Alternate sides based on option index or simple hash
                         const optionIndex = sourceNode.decisionOptions.indexOf(option);
 
-                        // Determine target handle: if multiple incoming, offset. If unique, center.
-                        const isUniqueIncoming = incomingEdgeCounts[edge.target] <= 1;
-
-                        if (optionIndex % 2 === 0) {
+                        if (optionIndex === 0) {
+                            // First option: goes up-left (red arrow to step-1)
                             sourceHandle = 'left';
-                            targetHandle = isUniqueIncoming ? 'target-center' : 'target-left';
-                            strokeColor = '#ef4444'; // Red-ish for branch 1
+                            targetHandle = 'left';
+                            strokeColor = '#ef4444';
+                            detourWidth = 80;
                         } else {
-                            sourceHandle = 'right';
-                            targetHandle = isUniqueIncoming ? 'target-center' : 'target-right';
-                            strokeColor = '#22c55e'; // Green-ish for branch 2
+                            // Second option: goes up (green arrow to step-2)
+                            sourceHandle = 'top';
+                            targetHandle = 'left';
+                            strokeColor = '#22c55e';
+                            detourWidth = 50;
                         }
                     }
+                } else if (targetNode?.type === 'decision') {
+                    // Edge to decision node: from right of process to top of decision
+                    sourceHandle = 'right';
+                    targetHandle = 'top';
+                    strokeColor = '#64748b';
+                } else {
+                    // Normal process-to-process: horizontal arrow
+                    sourceHandle = 'right';
+                    targetHandle = 'left';
+                    strokeColor = '#64748b';
                 }
             } else {
-                // Normal process node connection
-                sourceHandle = 'bottom';
-                targetHandle = 'target-center';
+                // Vertical layout edge logic (original)
+                if (sourceNode?.type === 'decision' && sourceNode.decisionOptions) {
+                    const option = sourceNode.decisionOptions.find(opt => opt.targetNodeId === edge.target);
+                    if (option) {
+                        label = option.label;
+                        strokeDasharray = '5,5';
+
+                        const isMainFlow = targetIndex === sourceIndex + 1;
+
+                        if (isMainFlow) {
+                            sourceHandle = 'bottom';
+                            strokeColor = '#2563eb';
+                            strokeWidth = 3;
+                        } else {
+                            detourWidth = 30 + (label.length * 8);
+                            const optionIndex = sourceNode.decisionOptions.indexOf(option);
+                            const isUniqueIncoming = incomingEdgeCounts[edge.target] <= 1;
+
+                            if (optionIndex % 2 === 0) {
+                                sourceHandle = 'left';
+                                targetHandle = isUniqueIncoming ? 'target-center' : 'target-left';
+                                strokeColor = '#ef4444';
+                            } else {
+                                sourceHandle = 'right';
+                                targetHandle = isUniqueIncoming ? 'target-center' : 'target-right';
+                                strokeColor = '#22c55e';
+                            }
+                        }
+                    }
+                } else {
+                    sourceHandle = 'bottom';
+                    targetHandle = 'target-center';
+                }
             }
 
             return {
@@ -437,7 +490,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                 data: { detourWidth }, // Pass calculated width
             };
         });
-    }, [workflow.edges, workflow.nodes, progress.currentNodeId]);
+    }, [workflow.edges, workflow.nodes, progress.currentNodeId, isHorizontal]);
 
     const [nodes, setNodes, onNodesChange] = useNodesState(initialNodes);
     const [edges, setEdges, onEdgesChange] = useEdgesState(initialEdges);
