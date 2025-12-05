@@ -179,7 +179,7 @@ const ProcessNode: React.FC<NodeProps> = ({ data, selected }) => {
             <Handle type="target" position={Position.Left} id="left" className="!opacity-0" />
             <Handle type="source" position={Position.Right} id="right" className="!opacity-0" />
 
-            <Handle type="source" position={Position.Bottom} className="!opacity-0" />
+            <Handle type="source" position={Position.Bottom} id="bottom" className="!opacity-0" />
         </div>
     );
 };
@@ -225,6 +225,7 @@ const DecisionNode: React.FC<NodeProps> = ({ data, selected }) => {
 
             {/* Handles - Standard positions work for the bounding box */}
             <Handle type="target" position={Position.Top} id="top" className="!opacity-0" />
+            <Handle type="source" position={Position.Top} id="top-source" className="!opacity-0" />
             <Handle type="source" position={Position.Right} id="right" className="!opacity-0" />
             <Handle type="source" position={Position.Bottom} id="bottom" className="!opacity-0" />
             <Handle type="source" position={Position.Left} id="left" className="!opacity-0" />
@@ -460,7 +461,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                             detourWidth = 80;
                         } else {
                             // Second option: goes up (green arrow to step-2)
-                            sourceHandle = 'top';
+                            sourceHandle = 'top-source';
                             targetHandle = 'left';
                             strokeColor = '#22c55e';
                             detourWidth = 50;
