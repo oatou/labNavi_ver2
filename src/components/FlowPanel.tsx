@@ -49,8 +49,15 @@ const DetourEdge: React.FC<EdgeProps> = ({
     let labelX = sourceX;
     let labelY = sourceY;
 
-    if (sourcePosition === Position.Bottom) {
-        // Straight down (Main Flow)
+    // Horizontal straight line (Right to Left connection)
+    if (sourcePosition === Position.Right && targetPosition === Position.Left) {
+        // Simple straight horizontal line
+        path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+        labelX = (sourceX + targetX) / 2 - 30;
+        labelY = sourceY - 15;
+    }
+    // Vertical straight down (Main Flow in vertical mode)
+    else if (sourcePosition === Position.Bottom && targetPosition === Position.Top) {
         const [edgePath] = getSmoothStepPath({
             sourceX,
             sourceY,
@@ -60,28 +67,42 @@ const DetourEdge: React.FC<EdgeProps> = ({
             targetPosition,
         });
         path = edgePath;
-
-        // Label position for main flow
         labelX = sourceX - 75;
         labelY = sourceY + 10;
-    } else {
-        // Detour (Branch)
-        // 1. Move out horizontally by detourWidth
+    }
+    // Right to Top (process to decision)
+    else if (sourcePosition === Position.Right && targetPosition === Position.Top) {
+        // Go right then down
+        const midX = (sourceX + targetX) / 2;
+        path = `M ${sourceX},${sourceY} L ${midX},${sourceY} L ${midX},${targetY - 30} L ${targetX},${targetY - 30} L ${targetX},${targetY}`;
+        labelX = midX - 30;
+        labelY = sourceY - 15;
+    }
+    // Decision branches (loop back arrows) 
+    else if (sourcePosition === Position.Left || sourcePosition === Position.Top) {
+        if (sourcePosition === Position.Left) {
+            // Loop back to earlier node (goes left, down, then to target)
+            const loopY = sourceY + 80; // Go below
+            path = `M ${sourceX},${sourceY} L ${sourceX - 40},${sourceY} L ${sourceX - 40},${loopY} L ${targetX - 40},${loopY} L ${targetX - 40},${targetY} L ${targetX},${targetY}`;
+            labelX = (sourceX + targetX) / 2 - 50;
+            labelY = loopY + 10;
+        } else {
+            // Top handle - goes up then left
+            const loopY = sourceY - 60;
+            path = `M ${sourceX},${sourceY} L ${sourceX},${loopY} L ${targetX - 30},${loopY} L ${targetX - 30},${targetY} L ${targetX},${targetY}`;
+            labelX = (sourceX + targetX) / 2;
+            labelY = loopY - 15;
+        }
+    }
+    // Default: vertical detour (original behavior)
+    else {
         const p1x = sourceX + (direction * detourWidth);
         const p1y = sourceY;
-
-        // 2. Go down to just above target
         const p2x = p1x;
         const p2y = targetY - 30;
-
-        // 3. Go horizontal to target
         const p3x = targetX;
         const p3y = p2y;
-
-        // 4. Go down to target
         path = `M ${sourceX},${sourceY} L ${p1x},${p1y} L ${p2x},${p2y} L ${p3x},${p3y} L ${targetX},${targetY}`;
-
-        // Label position for detour flow: Center on vertical segment
         labelX = p1x - 75;
         labelY = (p1y + p2y) / 2 - 20;
     }
@@ -293,23 +314,31 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
 
         // 1b. Create Group Nodes for Horizontal Mode
         if (workflow.groups && isHorizontal) {
+            // Get process nodes for index calculation
+            const processNodesForGroups = workflow.nodes.filter(n => n.type !== 'decision');
+
             workflow.groups.forEach(group => {
                 if (!group.nodeIds || group.nodeIds.length === 0) return;
 
-                const groupNodes = workflow.nodes
+                // Filter only process nodes in this group
+                const groupProcessNodes = processNodesForGroups
                     .map((n, i) => ({ node: n, index: i }))
                     .filter(item => group.nodeIds.includes(item.node.id));
 
-                if (groupNodes.length === 0) return;
+                if (groupProcessNodes.length === 0) return;
 
-                const minIndex = Math.min(...groupNodes.map(n => n.index));
-                const maxIndex = Math.max(...groupNodes.map(n => n.index));
+                const minIndex = Math.min(...groupProcessNodes.map(n => n.index));
+                const maxIndex = Math.max(...groupProcessNodes.map(n => n.index));
 
-                // Horizontal layout: X is based on index, Y is fixed
+                // Horizontal layout: X is based on process node index
                 const startX = minIndex * HORIZONTAL_SPACING + START_X - 30;
                 const width = (maxIndex - minIndex) * HORIZONTAL_SPACING + NODE_WIDTH + 60;
-                const height = 180;
-                const y = START_Y - 40;
+
+                // Height that spans from 1/3 above nodes to 1/3 below nodes
+                const nodeHeight = 80; // Approximate node height
+                const groupPadding = nodeHeight / 3;
+                const height = nodeHeight + (groupPadding * 2) + 40;
+                const y = START_Y - groupPadding - 20;
 
                 nodes.push({
                     id: group.id,
