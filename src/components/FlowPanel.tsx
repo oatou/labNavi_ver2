@@ -55,9 +55,18 @@ const DetourEdge: React.FC<EdgeProps> = ({
 
         // Horizontal straight line (Right to Left connection)
         if (sourcePosition === Position.Right && targetPosition === Position.Left) {
-            path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
-            labelX = (sourceX + targetX) / 2 - 30;
-            labelY = sourceY - 15;
+            if (sourceX > targetX) {
+                // Going backwards - need to loop up
+                const loopY = sourceY - 60;
+                path = `M ${sourceX},${sourceY} L ${sourceX + 40},${sourceY} L ${sourceX + 40},${loopY} L ${targetX - 30},${loopY} L ${targetX - 30},${targetY} L ${targetX},${targetY}`;
+                labelX = (sourceX + targetX) / 2;
+                labelY = loopY - 15;
+            } else {
+                // Normal forward connection
+                path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+                labelX = (sourceX + targetX) / 2 - 30;
+                labelY = sourceY - 15;
+            }
         }
         // Right to Top (process to decision)
         else if (sourcePosition === Position.Right && targetPosition === Position.Top) {
@@ -460,8 +469,8 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                             strokeColor = '#ef4444';
                             detourWidth = 80;
                         } else {
-                            // Second option: goes up (green arrow to step-2)
-                            sourceHandle = 'top-source';
+                            // Second option: goes from right side (green arrow to step-2)
+                            sourceHandle = 'right';
                             targetHandle = 'left';
                             strokeColor = '#22c55e';
                             detourWidth = 50;
