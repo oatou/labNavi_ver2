@@ -44,67 +44,75 @@ const DetourEdge: React.FC<EdgeProps> = ({
 }) => {
     const detourWidth = data?.detourWidth || 50;
     const direction = sourcePosition === Position.Left ? -1 : 1;
+    const isHorizontalLayout = data?.isHorizontal || false;
 
     let path = '';
     let labelX = sourceX;
     let labelY = sourceY;
 
-    // Horizontal straight line (Right to Left connection)
-    if (sourcePosition === Position.Right && targetPosition === Position.Left) {
-        // Simple straight horizontal line
-        path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
-        labelX = (sourceX + targetX) / 2 - 30;
-        labelY = sourceY - 15;
-    }
-    // Vertical straight down (Main Flow in vertical mode)
-    else if (sourcePosition === Position.Bottom && targetPosition === Position.Top) {
-        const [edgePath] = getSmoothStepPath({
-            sourceX,
-            sourceY,
-            sourcePosition,
-            targetX,
-            targetY,
-            targetPosition,
-        });
-        path = edgePath;
-        labelX = sourceX - 75;
-        labelY = sourceY + 10;
-    }
-    // Right to Top (process to decision)
-    else if (sourcePosition === Position.Right && targetPosition === Position.Top) {
-        // Go right then down
-        const midX = (sourceX + targetX) / 2;
-        path = `M ${sourceX},${sourceY} L ${midX},${sourceY} L ${midX},${targetY - 30} L ${targetX},${targetY - 30} L ${targetX},${targetY}`;
-        labelX = midX - 30;
-        labelY = sourceY - 15;
-    }
-    // Decision branches (loop back arrows) 
-    else if (sourcePosition === Position.Left || sourcePosition === Position.Top) {
-        if (sourcePosition === Position.Left) {
+    if (isHorizontalLayout) {
+        // ========== HORIZONTAL LAYOUT EDGES ==========
+
+        // Horizontal straight line (Right to Left connection)
+        if (sourcePosition === Position.Right && targetPosition === Position.Left) {
+            path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+            labelX = (sourceX + targetX) / 2 - 30;
+            labelY = sourceY - 15;
+        }
+        // Right to Top (process to decision)
+        else if (sourcePosition === Position.Right && targetPosition === Position.Top) {
+            const midX = (sourceX + targetX) / 2;
+            path = `M ${sourceX},${sourceY} L ${midX},${sourceY} L ${midX},${targetY - 30} L ${targetX},${targetY - 30} L ${targetX},${targetY}`;
+            labelX = midX - 30;
+            labelY = sourceY - 15;
+        }
+        // Decision branches (loop back arrows) 
+        else if (sourcePosition === Position.Left) {
             // Loop back to earlier node (goes left, down, then to target)
-            const loopY = sourceY + 80; // Go below
+            const loopY = sourceY + 80;
             path = `M ${sourceX},${sourceY} L ${sourceX - 40},${sourceY} L ${sourceX - 40},${loopY} L ${targetX - 40},${loopY} L ${targetX - 40},${targetY} L ${targetX},${targetY}`;
             labelX = (sourceX + targetX) / 2 - 50;
             labelY = loopY + 10;
-        } else {
+        }
+        else if (sourcePosition === Position.Top) {
             // Top handle - goes up then left
             const loopY = sourceY - 60;
             path = `M ${sourceX},${sourceY} L ${sourceX},${loopY} L ${targetX - 30},${loopY} L ${targetX - 30},${targetY} L ${targetX},${targetY}`;
             labelX = (sourceX + targetX) / 2;
             labelY = loopY - 15;
         }
-    }
-    // Default: vertical detour (original behavior)
-    else {
-        const p1x = sourceX + (direction * detourWidth);
-        const p1y = sourceY;
-        const p2x = p1x;
-        const p2y = targetY - 30;
-        const p3x = targetX;
-        const p3y = p2y;
-        path = `M ${sourceX},${sourceY} L ${p1x},${p1y} L ${p2x},${p2y} L ${p3x},${p3y} L ${targetX},${targetY}`;
-        labelX = p1x - 75;
-        labelY = (p1y + p2y) / 2 - 20;
+        else {
+            // Default horizontal
+            path = `M ${sourceX},${sourceY} L ${targetX},${targetY}`;
+        }
+    } else {
+        // ========== VERTICAL LAYOUT EDGES (Original) ==========
+
+        if (sourcePosition === Position.Bottom) {
+            // Straight down (Main Flow)
+            const [edgePath] = getSmoothStepPath({
+                sourceX,
+                sourceY,
+                sourcePosition,
+                targetX,
+                targetY,
+                targetPosition,
+            });
+            path = edgePath;
+            labelX = sourceX - 75;
+            labelY = sourceY + 10;
+        } else {
+            // Detour (Branch) - Original logic that avoids overlap
+            const p1x = sourceX + (direction * detourWidth);
+            const p1y = sourceY;
+            const p2x = p1x;
+            const p2y = targetY - 30;
+            const p3x = targetX;
+            const p3y = p2y;
+            path = `M ${sourceX},${sourceY} L ${p1x},${p1y} L ${p2x},${p2y} L ${p3x},${p3y} L ${targetX},${targetY}`;
+            labelX = p1x - 75;
+            labelY = (p1y + p2y) / 2 - 20;
+        }
     }
 
     return (
@@ -516,7 +524,7 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                 style: { stroke: strokeColor, strokeWidth, strokeDasharray },
                 animated: edge.source === progress.currentNodeId,
                 label: label,
-                data: { detourWidth }, // Pass calculated width
+                data: { detourWidth, isHorizontal }, // Pass layout mode
             };
         });
     }, [workflow.edges, workflow.nodes, progress.currentNodeId, isHorizontal]);
