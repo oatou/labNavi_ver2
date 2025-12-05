@@ -65,13 +65,34 @@ export interface HistoryEntry {
     details: string;
 }
 
+// Category type for organizing projects
+export type ProjectCategory =
+    | '実験'
+    | '分析'
+    | '製造'
+    | '品質管理'
+    | '研究開発'
+    | 'その他';
+
+export const PROJECT_CATEGORIES: ProjectCategory[] = [
+    '実験',
+    '分析',
+    '製造',
+    '品質管理',
+    '研究開発',
+    'その他'
+];
+
 export interface Project {
     id: string;
     name: string;
     description?: string;
+    category?: ProjectCategory;   // Project category
     createdAt: number;
     updatedAt: number;
     workflow: WorkflowDefinition;
     progress: UserProgress;
-    history?: HistoryEntry[];  // Version history
+    history?: HistoryEntry[];     // Version history
+    isTemplate?: boolean;         // If true, this is a template
+    templateId?: string;          // ID of template this was created from
 }

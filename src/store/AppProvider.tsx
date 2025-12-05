@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthProvider';
-import type { UserProgress, WorkflowDefinition, WorkflowNode, Project, WorkflowGroup, HistoryEntry } from '../types/workflow';
+import type { UserProgress, WorkflowDefinition, WorkflowNode, Project, WorkflowGroup, HistoryEntry, ProjectCategory } from '../types/workflow';
 import { experimentalWorkflow } from '../data/workflow';
 
 interface AppContextType {
@@ -10,12 +10,18 @@ interface AppContextType {
     projects: Project[];
     currentProjectId: string | null;
     currentProject: Project | undefined;
-    addProject: (name: string, description?: string) => void;
+    addProject: (name: string, description?: string, category?: ProjectCategory) => void;
     updateProject: (id: string, data: Partial<Project>) => void;
     deleteProject: (id: string) => void;
     selectProject: (id: string) => void;
     backToMenu: () => void;
     loading: boolean;
+
+    // Template & Duplicate
+    duplicateProject: (id: string) => void;
+    saveAsTemplate: (id: string) => void;
+    createFromTemplate: (templateId: string, name: string) => void;
+    templates: Project[];
 
     // Workflow Actions (operate on current project)
     workflow: WorkflowDefinition;
@@ -142,11 +148,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     // --- Project Management Actions ---
 
-    const addProject = (name: string, description?: string) => {
+    const addProject = (name: string, description?: string, category?: ProjectCategory) => {
         const newProject: Project = {
             id: `proj-${Date.now()}`,
             name,
             description,
+            category,
             createdAt: Date.now(),
             updatedAt: Date.now(),
             workflow: JSON.parse(JSON.stringify(experimentalWorkflow)),
@@ -178,6 +185,79 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setCurrentProjectId(null);
         }
     };
+
+    // Duplicate an existing project
+    const duplicateProject = (id: string) => {
+        const original = projects.find(p => p.id === id);
+        if (!original) return;
+
+        const newProject: Project = {
+            ...JSON.parse(JSON.stringify(original)),
+            id: `proj-${Date.now()}`,
+            name: `${original.name} (コピー)`,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            progress: { ...INITIAL_PROGRESS },
+            history: [],
+            isTemplate: false
+        };
+
+        setProjects(prev => {
+            const newProjects = [...prev, newProject];
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
+    };
+
+    // Save current project as a template
+    const saveAsTemplate = (id: string) => {
+        const original = projects.find(p => p.id === id);
+        if (!original) return;
+
+        const template: Project = {
+            ...JSON.parse(JSON.stringify(original)),
+            id: `tmpl-${Date.now()}`,
+            name: `[テンプレート] ${original.name}`,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            progress: { ...INITIAL_PROGRESS },
+            history: [],
+            isTemplate: true
+        };
+
+        setProjects(prev => {
+            const newProjects = [...prev, template];
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
+    };
+
+    // Create a new project from a template
+    const createFromTemplate = (templateId: string, name: string) => {
+        const template = projects.find(p => p.id === templateId && p.isTemplate);
+        if (!template) return;
+
+        const newProject: Project = {
+            ...JSON.parse(JSON.stringify(template)),
+            id: `proj-${Date.now()}`,
+            name,
+            createdAt: Date.now(),
+            updatedAt: Date.now(),
+            progress: { ...INITIAL_PROGRESS },
+            history: [],
+            isTemplate: false,
+            templateId
+        };
+
+        setProjects(prev => {
+            const newProjects = [...prev, newProject];
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
+    };
+
+    // Get templates list
+    const templates = projects.filter(p => p.isTemplate);
 
     const selectProject = (id: string) => {
         setCurrentProjectId(id);
@@ -433,6 +513,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             selectProject,
             backToMenu,
             loading,
+            duplicateProject,
+            saveAsTemplate,
+            createFromTemplate,
+            templates,
             workflow,
             progress,
             setNode,
