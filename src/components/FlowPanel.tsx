@@ -241,19 +241,26 @@ const edgeTypes = {
     detour: DetourEdge,
 };
 
-export const FlowPanel: React.FC = () => {
+interface FlowPanelProps {
+    isHorizontal?: boolean;
+}
+
+export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) => {
     const { workflow, progress, setNode } = useApp();
 
     const initialNodes: Node[] = useMemo(() => {
         const nodes: Node[] = [];
 
-        // 1. Create Group Nodes (Background)
-        if (workflow.groups) {
+        // Layout constants based on orientation
+        const HORIZONTAL_SPACING = 300;
+        const START_X = 100;
+        const START_Y = 200;
+
+        // 1. Create Group Nodes (Background) - Skip in horizontal mode for now
+        if (workflow.groups && !isHorizontal) {
             workflow.groups.forEach(group => {
                 if (!group.nodeIds || group.nodeIds.length === 0) return;
 
-                // Find min/max Y of nodes in the group to determine bounds
-                // We assume nodes are laid out vertically by index
                 const groupNodes = workflow.nodes
                     .map((n, i) => ({ node: n, index: i }))
                     .filter(item => group.nodeIds.includes(item.node.id));
@@ -263,19 +270,8 @@ export const FlowPanel: React.FC = () => {
                 const minIndex = Math.min(...groupNodes.map(n => n.index));
                 const maxIndex = Math.max(...groupNodes.map(n => n.index));
 
-                // Calculate bounds
-                // Y position: Start of first node - padding
-                // Calculate bounds centered between nodes
-                // Node starts at index * 150 + 50
-                // Gap is approx 70px. 1/3 is approx 23px.
-                // Top: 50 - 25 = 25
-                // Bottom: 130 + 25 = 155 (Height 130 for single node)
                 const startY = minIndex * VERTICAL_SPACING + 25;
                 const height = (maxIndex - minIndex) * VERTICAL_SPACING + 130;
-
-                // Width: Wide enough to encompass nodes + detour lines
-                // Center X is 400. Node width 250.
-                // Let's make it 500px wide centered at 400.
                 const width = 500;
                 const x = CENTER_X - (width / 2) + (NODE_WIDTH / 2);
 
@@ -284,7 +280,39 @@ export const FlowPanel: React.FC = () => {
                     position: { x, y: startY },
                     data: { label: group.title, color: group.color },
                     type: 'groupNode',
-                    style: { width, height, zIndex: -1 }, // Ensure background
+                    style: { width, height, zIndex: -1 },
+                    draggable: false,
+                    selectable: false,
+                });
+            });
+        }
+
+        // 1b. Create Group Nodes for Horizontal Mode
+        if (workflow.groups && isHorizontal) {
+            workflow.groups.forEach(group => {
+                if (!group.nodeIds || group.nodeIds.length === 0) return;
+
+                const groupNodes = workflow.nodes
+                    .map((n, i) => ({ node: n, index: i }))
+                    .filter(item => group.nodeIds.includes(item.node.id));
+
+                if (groupNodes.length === 0) return;
+
+                const minIndex = Math.min(...groupNodes.map(n => n.index));
+                const maxIndex = Math.max(...groupNodes.map(n => n.index));
+
+                // Horizontal layout: X is based on index, Y is fixed
+                const startX = minIndex * HORIZONTAL_SPACING + START_X - 30;
+                const width = (maxIndex - minIndex) * HORIZONTAL_SPACING + NODE_WIDTH + 60;
+                const height = 180;
+                const y = START_Y - 40;
+
+                nodes.push({
+                    id: group.id,
+                    position: { x: startX, y },
+                    data: { label: group.title, color: group.color },
+                    type: 'groupNode',
+                    style: { width, height, zIndex: -1 },
                     draggable: false,
                     selectable: false,
                 });
@@ -303,10 +331,18 @@ export const FlowPanel: React.FC = () => {
                 isCompleted
             };
 
+            // Calculate position based on orientation
+            const x = isHorizontal
+                ? index * HORIZONTAL_SPACING + START_X
+                : CENTER_X + (node.type === 'decision' ? (NODE_WIDTH - 220) / 2 : 0);
+            const y = isHorizontal
+                ? START_Y
+                : index * VERTICAL_SPACING + 50;
+
             if (node.type === 'decision') {
                 nodes.push({
                     id: node.id,
-                    position: { x: CENTER_X + (NODE_WIDTH - 220) / 2, y: index * VERTICAL_SPACING + 50 },
+                    position: { x, y },
                     data: nodeData,
                     type: 'decisionNode',
                     selected: isCurrent,
@@ -314,7 +350,7 @@ export const FlowPanel: React.FC = () => {
             } else {
                 nodes.push({
                     id: node.id,
-                    position: { x: CENTER_X, y: index * VERTICAL_SPACING + 50 },
+                    position: { x, y },
                     data: nodeData,
                     type: 'processNode',
                     selected: isCurrent,
@@ -323,7 +359,7 @@ export const FlowPanel: React.FC = () => {
         });
 
         return nodes;
-    }, [workflow.nodes, workflow.groups, progress.currentNodeId, progress.completedStepIds]);
+    }, [workflow.nodes, workflow.groups, progress.currentNodeId, progress.completedStepIds, isHorizontal]);
 
     const initialEdges: Edge[] = useMemo(() => {
         // Calculate incoming edge counts for each node to determine target handle
