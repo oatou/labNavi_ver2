@@ -348,9 +348,15 @@ export const FlowPanel: React.FC<FlowPanelProps> = ({ isHorizontal = false }) =>
                 const minIndex = Math.min(...groupProcessNodes.map(n => n.index));
                 const maxIndex = Math.max(...groupProcessNodes.map(n => n.index));
 
-                // Horizontal layout: X is based on process node index
-                const startX = minIndex * HORIZONTAL_SPACING + START_X - 30;
-                const width = (maxIndex - minIndex) * HORIZONTAL_SPACING + NODE_WIDTH + 60;
+                // Calculate gap between nodes (HORIZONTAL_SPACING - NODE_WIDTH)
+                const gapBetweenNodes = HORIZONTAL_SPACING - NODE_WIDTH;
+                const gapThird = gapBetweenNodes / 3;
+
+                // Left edge: 1/3 of gap before first node (from previous node end)
+                // Right edge: 1/3 of gap after last node (toward next node)
+                const startX = minIndex * HORIZONTAL_SPACING + START_X - gapThird;
+                const endX = maxIndex * HORIZONTAL_SPACING + START_X + NODE_WIDTH + gapThird;
+                const width = endX - startX;
 
                 // Height that spans from 1/3 above nodes to 1/3 below nodes
                 const nodeHeight = 80; // Approximate node height
