@@ -88,15 +88,15 @@ const DetourEdge: React.FC<EdgeProps> = ({
     } else {
         // ========== VERTICAL LAYOUT EDGES (Original) ==========
 
-        if (sourcePosition === Position.Bottom) {
-            // Straight down (Main Flow)
+        if (sourcePosition === Position.Bottom || !sourcePosition) {
+            // Straight down (Main Flow) - also default when sourcePosition is undefined
             const [edgePath] = getSmoothStepPath({
                 sourceX,
                 sourceY,
-                sourcePosition,
+                sourcePosition: Position.Bottom,
                 targetX,
                 targetY,
-                targetPosition,
+                targetPosition: targetPosition || Position.Top,
             });
             path = edgePath;
             labelX = sourceX - 75;
