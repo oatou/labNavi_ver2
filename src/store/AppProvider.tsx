@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState, useCallback } fr
 import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useAuth } from './AuthProvider';
-import type { UserProgress, WorkflowDefinition, WorkflowNode, Project, WorkflowGroup } from '../types/workflow';
+import type { UserProgress, WorkflowDefinition, WorkflowNode, Project, WorkflowGroup, HistoryEntry } from '../types/workflow';
 import { experimentalWorkflow } from '../data/workflow';
 
 interface AppContextType {
@@ -112,6 +112,34 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
     };
 
+    // Add history entry to current project
+    const addHistory = useCallback((action: HistoryEntry['action'], details: string) => {
+        if (!currentProjectId || !user) return;
+
+        const entry: HistoryEntry = {
+            id: `hist-${Date.now()}`,
+            timestamp: Date.now(),
+            userId: user.uid,
+            userEmail: user.email || undefined,
+            action,
+            details
+        };
+
+        setProjects(prev => {
+            const newProjects = prev.map(p => {
+                if (p.id === currentProjectId) {
+                    const history = p.history || [];
+                    // Keep last 100 entries
+                    const newHistory = [...history, entry].slice(-100);
+                    return { ...p, history: newHistory, updatedAt: Date.now() };
+                }
+                return p;
+            });
+            saveToFirestore(newProjects);
+            return newProjects;
+        });
+    }, [currentProjectId, user, saveToFirestore]);
+
     // --- Project Management Actions ---
 
     const addProject = (name: string, description?: string) => {
@@ -182,6 +210,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 progress: { ...p.progress, completedStepIds: [...p.progress.completedStepIds, stepId] }
             };
         });
+        // Track in history
+        const node = workflow.nodes.find(n => n.subProcesses.some(sp => sp.id === stepId));
+        const step = node?.subProcesses.find(sp => sp.id === stepId);
+        if (step) {
+            addHistory('complete', `ステップ「${step.title}」を完了`);
+        }
     };
 
     const checkContent = (contentId: string, checked: boolean) => {
@@ -202,6 +236,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                 ...p,
                 progress: { ...INITIAL_PROGRESS }
             }));
+            addHistory('reset', '進捗をリセット');
         }
     };
 

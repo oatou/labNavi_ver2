@@ -4,6 +4,7 @@ import { FlowPanel } from './FlowPanel';
 import { DetailsPanel } from './DetailsPanel';
 import { WorkflowEditor } from './WorkflowEditor';
 import { QRCodeButton } from './QRCodeButton';
+import { HistoryPanel } from './HistoryPanel';
 import { PanelLeftClose, PanelLeft } from 'lucide-react';
 import { useApp } from '../store/AppProvider';
 
@@ -31,6 +32,8 @@ export const Layout: React.FC = () => {
                     projectId={currentProject?.id}
                     projectName={currentProject?.name}
                 />
+
+                <HistoryPanel />
             </div>
 
             {isFullscreen ? (
