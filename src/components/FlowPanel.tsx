@@ -56,8 +56,8 @@ const DetourEdge: React.FC<EdgeProps> = ({
         // Horizontal straight line (Right to Left connection)
         if (sourcePosition === Position.Right && targetPosition === Position.Left) {
             if (sourceX > targetX) {
-                // Going backwards - need to loop up
-                const loopY = sourceY - 60;
+                // Going backwards - loop above main flow
+                const loopY = sourceY - 120;
                 path = `M ${sourceX},${sourceY} L ${sourceX + 40},${sourceY} L ${sourceX + 40},${loopY} L ${targetX - 30},${loopY} L ${targetX - 30},${targetY} L ${targetX},${targetY}`;
                 labelX = (sourceX + targetX) / 2;
                 labelY = loopY - 15;
